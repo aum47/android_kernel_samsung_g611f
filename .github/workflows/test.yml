@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Prevent earlier runs from being auto-canceled when new pushes happen
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -30,34 +29,23 @@ jobs:
       - name: Kernel mrproper (source root)
         run: |
           make mrproper
-        # Clean tree so headers/symlinks regenerate correctly for O=out builds
-        # per Kbuild rules.
-        # (No O= here; run at repo root.)
-        # 
-        # References: make help / Kbuild docs.
 
       - name: Configure (ARM64)
-        timeout-minutes: 30
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          # Set this to 'p' for Android 9 or 'r' for Android 11 as needed:
-          export ANDROID_MAJOR_VERSION=p
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           make O=out on7xreflte_01_defconfig
-          # Resolve any new symbols non-interactively:
           make O=out olddefconfig
 
-      - name: Build
+      - name: Build (use system dtc + -fcommon for host tools)
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          export ANDROID_MAJOR_VERSION=p
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          # Use system dtc to avoid yylloc conflicts with in-tree dtc:
-          make O=out DTC=dtc -j"$(nproc)"
+          make O=out DTC=dtc HOSTCFLAGS="-fcommon" -j"$(nproc)"
           ls -al out/arch/arm64/boot || true
 
       - name: Upload artifacts
